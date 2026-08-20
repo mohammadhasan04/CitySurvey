@@ -55,6 +55,10 @@ export async function POST(request: Request) {
     // Create account directly in Supabase Auth Dashboard section
     await createSupabaseAuthUser(normalizedEmail, validatedData.password, validatedData.name, assignedRole);
 
+    // Trigger Supabase Auth automatic verification email dispatch
+    const { sendVerificationLink } = await import("@/lib/supabase-auth");
+    await sendVerificationLink(normalizedEmail);
+
     // Log the registration
     await prisma.auditLog.create({
       data: {
@@ -70,7 +74,7 @@ export async function POST(request: Request) {
       {
         success: true,
         email: normalizedEmail,
-        message: "Account created successfully! You can now sign in to your account.",
+        message: "Account created successfully! An automated verification email has been dispatched to your email address.",
       },
       { status: 201 }
     );
