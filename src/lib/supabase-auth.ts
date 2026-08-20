@@ -176,26 +176,6 @@ export async function sendVerificationLink(email: string): Promise<{ success: bo
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     let verifyUrl = `${appUrl}/api/auth/verify-link?email=${encodeURIComponent(normalizedEmail)}&token=${token}`;
 
-    // 1. Trigger Supabase Cloud to AUTOMATICALLY send verification email
-    try {
-      const { supabase } = await import("@/lib/supabase");
-      const { data: resendData, error: resendErr } = await supabase.auth.resend({
-        type: "signup",
-        email: normalizedEmail,
-        options: {
-          emailRedirectTo: `${appUrl}/api/auth/verify-link?email=${encodeURIComponent(normalizedEmail)}`,
-        },
-      });
-      if (resendErr) {
-        console.warn("Supabase Auth resend email notice:", resendErr.message);
-      } else {
-        console.log(`[SUPABASE AUTOMATED EMAIL DISPATCHED] Signup verification email sent automatically to ${normalizedEmail}`);
-      }
-    } catch (sErr) {
-      console.warn("Supabase Auth resend notice:", sErr);
-    }
-
-    // 2. Generate Supabase action link
     try {
       const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
         type: "signup",
@@ -208,11 +188,13 @@ export async function sendVerificationLink(email: string): Promise<{ success: bo
       if (linkData?.properties?.action_link) {
         verifyUrl = linkData.properties.action_link;
       }
+      if (linkErr) {
+        console.warn("Supabase Auth generateLink notice:", linkErr.message);
+      }
     } catch (sErr) {
       console.warn("Supabase Auth generateLink notice:", sErr);
     }
 
-    // 3. Optional Nodemailer fallback
     const { sendMail } = await import("@/lib/email-service");
     await sendMail({
       to: normalizedEmail,
@@ -232,6 +214,8 @@ export async function sendVerificationLink(email: string): Promise<{ success: bo
         </div>
       `,
     });
+
+    console.log(`[SUPABASE AUTH EMAIL DISPATCHED] Verification link generated: ${verifyUrl}`);
 
     return { success: true, link: verifyUrl };
   } catch (error: any) {
@@ -259,22 +243,6 @@ export async function sendPasswordResetLink(email: string): Promise<{ success: b
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     let resetUrl = `${appUrl}/reset-password?email=${encodeURIComponent(normalizedEmail)}&token=${token}`;
 
-    // 1. Trigger Supabase Cloud to AUTOMATICALLY send recovery email directly from Supabase
-    try {
-      const { supabase } = await import("@/lib/supabase");
-      const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: `${appUrl}/reset-password?email=${encodeURIComponent(normalizedEmail)}`,
-      });
-      if (resetErr) {
-        console.warn("Supabase Auth resetPasswordForEmail notice:", resetErr.message);
-      } else {
-        console.log(`[SUPABASE AUTOMATED EMAIL DISPATCHED] Password reset recovery email sent automatically to ${normalizedEmail}`);
-      }
-    } catch (sErr) {
-      console.warn("Supabase Auth resetPasswordForEmail notice:", sErr);
-    }
-
-    // 2. Generate Supabase recovery action link
     try {
       const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
         type: "recovery",
@@ -286,11 +254,13 @@ export async function sendPasswordResetLink(email: string): Promise<{ success: b
       if (linkData?.properties?.action_link) {
         resetUrl = linkData.properties.action_link;
       }
+      if (linkErr) {
+        console.warn("Supabase Auth generateLink recovery notice:", linkErr.message);
+      }
     } catch (sErr) {
       console.warn("Supabase Auth generateLink recovery notice:", sErr);
     }
 
-    // 3. Optional Nodemailer fallback
     const { sendMail } = await import("@/lib/email-service");
     await sendMail({
       to: normalizedEmail,
@@ -310,6 +280,8 @@ export async function sendPasswordResetLink(email: string): Promise<{ success: b
         </div>
       `,
     });
+
+    console.log(`[SUPABASE AUTH EMAIL DISPATCHED] Password Reset link generated: ${resetUrl}`);
 
     return { success: true, link: resetUrl };
   } catch (error: any) {
